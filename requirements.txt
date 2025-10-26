@@ -1,0 +1,6 @@
+Flask>=2.0
+tensorflow>=2.8  # Or the specific version you used for training
+numpy>=1.19
+Pillow>=8.0      # For image processing (PIL)
+google-generativeai>=0.4 # For Gemini API access
+gunicorn>=20.0   # Optional, but recommended for running Flask in production

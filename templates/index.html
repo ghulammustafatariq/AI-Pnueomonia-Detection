@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pneumonia AI Project | LUMS Showcase</title>
+    <!-- Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter --><link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" xintegrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2jrdWwPMWjkQ+nrHG0UivSNWzVwXpGmWwG1Sg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- NO TensorFlow.js Library needed here -->
+
+    <style>
+        /* Base Styles (same as before) */
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background-color: #0d0d1a; color: #e0e0e0; }
+        ::selection { background-color: #6366f1; color: #ffffff; }
+        .text-gradient { background-image: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip : text; -webkit-text-fill-color: transparent; }
+        .nav-link.active { color: #ffffff !important; background-color: #3f424f !important; border-radius: 0.375rem; }
+        .nav-link:hover { color: #ffffff !important; background-color: #2b2e3a !important; }
+        .fade-in-section { opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; transition-delay: 0.1s; }
+        .fade-in-section.is-visible { opacity: 1; transform: translateY(0); }
+        .animated-item { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
+        .animated-item.is-visible { opacity: 1; transform: translateY(0); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spinner { border: 4px solid rgba(255, 255, 255, 0.2); border-left-color: #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        .drag-over { border-color: #6366f1 !important; background-color: #1a1a2e !important; }
+        .matrix-grid { display: grid; grid-template-columns: auto 1fr 1fr; grid-template-rows: auto 1fr 1fr; gap: 0.75rem; max-width: 550px; margin: auto; font-size: 0.95rem; position: relative; }
+        .matrix-header { font-weight: 700; color: #94a3b8; text-align: center; padding: 0.5rem 0; position: sticky; top: 0; z-index: 10; background-color: #1a1a2e; }
+        .matrix-label { font-weight: 700; color: #94a3b8; text-align: right; padding-right: 1.25rem; align-self: center; position: sticky; left: 0; z-index: 10; background-color: #1a1a2e; }
+        .matrix-cell { padding: 1.75rem 1rem; border-radius: 0.75rem; font-size: 1.8rem; font-weight: 900; color: #ffffff; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .matrix-cell:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.4); }
+        .matrix-cell::before { content: attr(data-label); position: absolute; top: 0.75rem; left: 1rem; font-size: 0.8rem; font-weight: 600; color: #ffffff; opacity: 0.7; text-transform: uppercase; }
+        .tn-cell { background-color: #2b6a5b; } .tp-cell { background-color: #3b82f6; } .fp-cell { background-color: #993333; } .fn-cell { background-color: #cc5200; }
+        .key-highlight-card { transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out; }
+        .key-highlight-card:hover { transform: translateY(-10px) scale(1.02); box-shadow: 0 15px 30px rgba(0,0,0,0.5); }
+        body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(circle at center, rgba(140, 150, 200, 0.03) 1px, transparent 1px); background-size: 20px 20px; opacity: 0.8; z-index: -1; }
+        .gemini-output { background-color: #1f2937; border-radius: 0.5rem; padding: 1rem; margin-top: 1rem; border: 1px solid #374151; }
+        .gemini-output h4 { font-weight: 600; color: #a5b4fc; margin-bottom: 0.5rem; }
+        .gemini-output p { font-size: 0.9rem; color: #d1d5db; line-height: 1.6; }
+        .gemini-output strong { color: #f87171; }
+        .gemini-spinner-container { display: flex; justify-content: center; align-items: center; padding: 1rem; }
+
+        /* Error message styling */
+        .error-message {
+            color: #f87171; /* red-400 */
+            background-color: #4b1d1d; /* darker red background */
+            border: 1px solid #993333; /* red-700 */
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body class="h-full antialiased">
+
+    <!-- Navbar --><nav id="navbar" class="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-lg shadow-xl border-b border-gray-800 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo/Title --><div class="flex-shrink-0"> <a href="#home" class="text-2xl font-extrabold text-gradient">PneumoniaAI</a> </div>
+                <!-- Nav Links --><div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#home" class="nav-link px-3 py-2 text-sm font-medium text-gray-400 transition-colors duration-200">Home</a>
+                        <a href="#highlights" class="nav-link px-3 py-2 text-sm font-medium text-gray-400 transition-colors duration-200">Highlights</a>
+                        <a href="#about" class="nav-link px-3 py-2 text-sm font-medium text-gray-400 transition-colors duration-200">About</a>
+                        <a href="#model" class="nav-link px-3 py-2 text-sm font-medium text-gray-400 transition-colors duration-200">Model</a>
+                        <a href="#try-it-out" class="nav-link px-3 py-2 text-sm font-medium text-gray-400 transition-colors duration-200">Try It</a>
+                        <a href="#team" class="nav-link px-3 py-2 text-sm font-medium text-gray-400 transition-colors duration-200">Team</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content --><main class="pt-16"> 
+
+        <!-- Section 1: Hero --><section id="home" class="relative min-h-screen flex items-center justify-center text-center px-4 py-20 bg-gradient-to-br from-gray-950 to-indigo-950 overflow-hidden">
+            <!-- Background effects --><div class="absolute inset-0 bg-cover opacity-5" style="background-image: url('https://www.transparenttextures.com/patterns/cubes.png');"></div>
+            <div class="absolute w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob top-10 left-1/4"></div>
+            <div class="absolute w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000 bottom-10 right-1/4"></div>
+            <div class="relative z-10 max-w-5xl mx-auto fade-in-section">
+                <p class="text-xl font-medium text-purple-400 uppercase tracking-widest">LUMS Project Showcase</p>
+                <h1 class="mt-6 text-6xl md:text-8xl font-extrabold text-white leading-tight drop-shadow-lg"> Precision AI for <span class="text-gradient">Pneumonia Detection</span> </h1>
+                <p class="mt-8 text-2xl text-gray-300 max-w-3xl mx-auto"> Empowering healthcare with advanced deep learning, achieving over 93% recall in chest X-ray analysis. </p>
+                <a href="#try-it-out" class="mt-12 inline-flex items-center justify-center px-10 py-4 border border-transparent text-lg font-semibold rounded-full shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white transition-all duration-300 hover:scale-105 hover:shadow-2xl active:scale-95"> Experience the Detector <i class="fas fa-arrow-right ml-3"></i> </a>
+            </div>
+        </section>
+
+        <!-- Section 2: Key Highlights --><section id="highlights" class="py-24 bg-gray-900 border-b border-gray-800">
+             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in-section">
+                <h2 class="text-5xl font-extrabold text-white">Project Highlights</h2>
+                <p class="mt-4 text-xl text-gray-400">Our commitment to accuracy and efficiency.</p>
+                <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-12">
+                    <div class="key-highlight-card bg-gray-800 p-8 rounded-xl shadow-xl border border-gray-700 animated-item" style="animation-delay: 0.2s;"> <i class="fas fa-heartbeat text-5xl text-red-500 mb-6"></i> <h3 class="text-3xl font-bold text-gradient">Critical Recall</h3> <p class="mt-4 text-xl text-white">93.6%</p> <p class="mt-2 text-gray-400">Ensuring very few pneumonia cases are missed.</p> </div>
+                    <div class="key-highlight-card bg-gray-800 p-8 rounded-xl shadow-xl border border-gray-700 animated-item" style="animation-delay: 0.4s;"> <i class="fas fa-check-circle text-5xl text-green-500 mb-6"></i> <h3 class="text-3xl font-bold text-gradient">Overall Accuracy</h3> <p class="mt-4 text-xl text-white">88.9%</p> <p class="mt-2 text-gray-400">High precision across both normal and pneumonia cases.</p> </div>
+                    <div class="key-highlight-card bg-gray-800 p-8 rounded-xl shadow-xl border border-gray-700 animated-item" style="animation-delay: 0.6s;"> <i class="fas fa-brain text-5xl text-blue-500 mb-6"></i> <h3 class="text-3xl font-bold text-gradient">VGG16 Powered</h3> <p class="mt-4 text-xl text-white">Robust Architecture</p> <p class="mt-2 text-gray-400">Leveraging state-of-the-art transfer learning.</p> </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: About the Project --><section id="about" class="py-24 bg-gray-950 border-b border-gray-800">
+             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in-section">
+                <div class="max-w-4xl mx-auto">
+                    <h2 class="text-5xl font-extrabold text-white">Our Vision</h2>
+                    <p class="mt-6 text-xl text-gray-300 leading-relaxed"> Developed for the Lahore University of Management Sciences (LUMS), this project explores the transformative potential of deep learning in healthcare. Our core objective was to engineer a highly reliable system for the rapid and accurate detection of pneumonia from chest X-ray images. </p>
+                    <p class="mt-4 text-xl text-gray-300 leading-relaxed"> By meticulously fine-tuning a pre-trained VGG16 model on a comprehensive public dataset, we've created a specialized classifier that demonstrates the immense power of <strong class="text-blue-400">Transfer Learning</strong>. This approach enables us to adapt sophisticated, pre-existing models to nuanced and critical medical tasks, pushing the boundaries of what's possible in diagnostic assistance. </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Model Details & Results --><section id="model" class="py-24 bg-gray-900 border-b border-gray-800">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16 fade-in-section">
+                    <h2 class="text-5xl font-extrabold text-white">The AI Under the Hood</h2>
+                    <p class="mt-4 text-xl text-gray-400">Delving into the architecture and performance.</p>
+                </div>
+                <div class="grid md:grid-cols-2 gap-16 items-center">
+                    <div class="space-y-12 fade-in-section">
+                        <div class="animated-item" style="animation-delay: 0.1s;"> <h3 class="text-3xl font-bold text-gradient mb-3 flex items-center"><i class="fas fa-cube mr-3 text-blue-400"></i>VGG16 Architecture</h3> <p class="text-lg text-gray-300 leading-relaxed"> Our model is built upon the robust VGG16 convolutional neural network, initially trained on millions of images from the ImageNet dataset. We employed <strong class="text-white">Transfer Learning</strong>, freezing the initial layers to preserve generic feature detection and fine-tuning the later layers to specialize in identifying pneumonia-specific patterns. </p> <div class="mt-6 p-4 bg-gray-800 rounded-lg border border-gray-700 shadow-inner"> <p class="text-sm text-gray-500 font-semibold">Key Components:</p> <ul class="mt-2 space-y-2 text-gray-300 text-base"> <li class="flex items-center"><i class="fas fa-layer-group text-blue-400 mr-2"></i> 13 Convolutional Layers</li> <li class="flex items-center"><i class="fas fa-compress-alt text-purple-400 mr-2"></i> 5 Max-Pooling Layers</li> <li class="flex items-center"><i class="fas fa-chart-line text-cyan-400 mr-2"></i> Custom Classification Head</li> </ul> </div> </div>
+                        <div class="animated-item" style="animation-delay: 0.3s;"> <h3 class="text-3xl font-bold text-gradient mb-3 flex items-center"><i class="fas fa-database mr-3 text-purple-400"></i>Dataset & Training</h3> <p class="mt-2 text-lg text-gray-300 leading-relaxed"> The model was rigorously trained and validated on a comprehensive public dataset, comprising a total of <strong class="text-white">5,216 chest X-ray images</strong>. This was split into 4,173 images for training and 1,043 for validation, ensuring robust learning. Final evaluation was conducted on an entirely <strong class="text-white">unseen test set of 640 images</strong>. </p> </div>
+                    </div>
+                    <div class="fade-in-section">
+                        <h3 class="text-3xl font-bold text-white text-center mb-8 animated-item" style="animation-delay: 0.5s;">Test Set Performance</h3>
+                        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700 animated-item" style="animation-delay: 0.7s;">
+                            <div class="matrix-grid">
+                                <div class="matrix-header"></div> <div class="matrix-header">Predicted: NORMAL</div> <div class="matrix-header">Predicted: PNEUMONIA</div>
+                                <div class="matrix-label">Actual:<br>NORMAL</div> <div class="matrix-cell tn-cell" data-label="True Negative">189</div> <div class="matrix-cell fp-cell" data-label="False Positive">45</div>
+                                <div class="matrix-label">Actual:<br>PNEUMONIA</div> <div class="matrix-cell fn-cell" data-label="False Negative">26</div> <div class="matrix-cell tp-cell" data-label="True Positive">380</div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-8 text-center"> This matrix demonstrates the model's performance on 640 unseen chest X-rays. <br> <span class="text-green-400 font-semibold">True Positives: Correctly identified pneumonia.</span> <br> <span class="text-red-400 font-semibold">False Negatives: Missed pneumonia (critical error).</span> </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Section 5: Try It Out (The Detector App) --><section id="try-it-out" class="py-24 bg-gray-950 border-b border-gray-800">
+            <div class="w-full max-w-xl mx-auto px-4 fade-in-section">
+                <!-- Header --><header class="text-center mb-12"> <h2 class="text-5xl font-extrabold text-white">Experience the AI</h2> <p class="mt-4 text-xl text-gray-400">Upload a chest X-ray for real-time analysis.</p> </header>
+                <main class="bg-gray-800 shadow-2xl rounded-2xl p-6 md:p-8 border border-gray-700">
+                    <!-- Upload Box --><div id="upload-box" class="w-full border-4 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer transition-all duration-300 hover:border-indigo-500 hover:bg-gray-700/50"> 
+                        <i class="fas fa-upload mx-auto h-16 w-16 text-gray-500 mb-4 text-6xl"></i> 
+                        <p id="upload-text" class="mt-4 text-2xl font-semibold text-gray-300">Drag & drop your X-ray here</p> 
+                        <p class="text-gray-500 text-base mt-2">PNG, JPG, or JPEG file accepted</p> 
+                        <button id="upload-button" class="mt-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-8 rounded-full transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95"> Browse Files </button> 
+                    </div>
+                    <input type="file" id="file-input" class="hidden" accept="image/png, image/jpeg">
+                    <!-- Image Preview --><div id="image-preview" class="hidden w-full text-center p-4"> <img id="preview-img" src="#" alt="Uploaded X-ray" class="max-h-80 w-auto object-contain rounded-lg mx-auto shadow-xl border-2 border-gray-700"> <p id="file-name" class="text-gray-400 text-sm mt-4 truncate"></p> <button id="clear-button" class="mt-4 text-base text-purple-400 hover:text-purple-300 transition-colors flex items-center mx-auto"> <i class="fas fa-redo-alt mr-2"></i> Upload a different image </button> </div>
+                    <!-- Error Message Area -->
+                    <div id="error-message-area" class="hidden mt-4"></div>
+                    <!-- Result & Loading Box --><div id="result-box" class="hidden mt-10">
+                        <div id="loader" class="flex flex-col items-center justify-center p-8 bg-gray-900 rounded-xl border border-gray-700"> <div class="spinner"></div> <p class="mt-5 text-xl font-semibold text-indigo-300">Analyzing Image...</p> </div>
+                        <div id="result-card" class="hidden bg-gray-900 border border-gray-700 rounded-xl p-8 text-center shadow-xl">
+                            <h2 class="text-3xl font-bold text-white mb-5">Analysis Complete</h2>
+                            <p class="text-6xl font-extrabold drop-shadow-md" id="result-text"></p>
+                            <div class="mt-6 bg-gray-800 rounded-lg p-4 inline-block shadow-inner border border-gray-700"> <p class="text-sm text-gray-400">Confidence Score</p> <p class="text-3xl font-bold text-white" id="confidence-text"></p> </div>
+                            <!-- Gemini Buttons (Initially Hidden) -->
+                            <div id="gemini-buttons" class="mt-8 space-y-4 hidden">
+                                <button id="explain-button" class="w-full bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 hover:bg-indigo-700 hover:scale-105 active:scale-95 flex items-center justify-center">
+                                    <i class="fas fa-lightbulb mr-2"></i> ✨ Explain this Result
+                                </button>
+                                <button id="next-steps-button" class="w-full bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 hover:bg-purple-700 hover:scale-105 active:scale-95 flex items-center justify-center">
+                                    <i class="fas fa-directions mr-2"></i> ✨ Suggest Potential Next Steps
+                                </button>
+                            </div>
+                            <!-- Gemini Output Areas (Initially Hidden) -->
+                            <div id="explanation-output" class="gemini-output hidden text-left"></div>
+                            <div id="next-steps-output" class="gemini-output hidden text-left"></div>
+
+                            <p class="text-xs text-gray-600 mt-8 max-w-sm mx-auto"> <strong>Disclaimer:</strong> This AI model is for educational and illustrative purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. </p>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </section>
+
+        <!-- Section 6: Meet the Team --><section id="team" class="py-24 bg-gray-900">
+             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center fade-in-section">
+                <h2 class="text-5xl font-extrabold text-white">Meet the Innovators</h2>
+                <p class="mt-4 text-xl text-gray-400">The dedicated minds behind this project.</p>
+                <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-12">
+                    <div class="bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700 key-highlight-card animated-item" style="animation-delay: 0.2s;"> <img class="w-36 h-36 rounded-full mx-auto object-cover border-4 border-purple-500 shadow-md" src="https://placehold.co/144x144/2d3748/cbd5e0?text=JD" alt="Your Name"> <h3 class="mt-6 text-3xl font-bold text-white">Your Name</h3> <p class="mt-2 text-xl text-gradient font-semibold">Project Lead / AI Engineer</p> <p class="mt-4 text-gray-400 text-base">Driving the core AI development and overall project direction.</p> <div class="mt-6 flex justify-center space-x-4"> <a href="#" class="text-gray-400 hover:text-blue-400 transition-colors"><i class="fab fa-linkedin text-2xl"></i></a> <a href="#" class="text-gray-400 hover:text-gray-200 transition-colors"><i class="fab fa-github text-2xl"></i></a> <a href="#" class="text-gray-400 hover:text-red-400 transition-colors"><i class="fas fa-envelope text-2xl"></i></a> </div> </div>
+                    <div class="bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700 key-highlight-card animated-item" style="animation-delay: 0.4s;"> <img class="w-36 h-36 rounded-full mx-auto object-cover border-4 border-blue-500 shadow-md" src="https://placehold.co/144x144/2d3748/cbd5e0?text=TM2" alt="Team Member 2"> <h3 class="mt-6 text-3xl font-bold text-white">Team Member 2</h3> <p class="mt-2 text-xl text-gradient font-semibold">Data Scientist</p> <p class="mt-4 text-gray-400 text-base">Responsible for data preprocessing, augmentation, and analysis.</p> <div class="mt-6 flex justify-center space-x-4"> <a href="#" class="text-gray-400 hover:text-blue-400 transition-colors"><i class="fab fa-linkedin text-2xl"></i></a> <a href="#" class="text-gray-400 hover:text-gray-200 transition-colors"><i class="fab fa-github text-2xl"></i></a> <a href="#" class="text-gray-400 hover:text-red-400 transition-colors"><i class="fas fa-envelope text-2xl"></i></a> </div> </div>
+                    <div class="bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700 key-highlight-card animated-item" style="animation-delay: 0.6s;"> <img class="w-36 h-36 rounded-full mx-auto object-cover border-4 border-cyan-500 shadow-md" src="https://placehold.co/144x144/2d3748/cbd5e0?text=TM3" alt="Team Member 3"> <h3 class="mt-6 text-3xl font-bold text-white">Team Member 3</h3> <p class="mt-2 text-xl text-gradient font-semibold">Web Developer / UI/UX</p> <p class="mt-4 text-gray-400 text-base">Crafting the engaging and intuitive user interface of this showcase.</p> <div class="mt-6 flex justify-center space-x-4"> <a href="#" class="text-gray-400 hover:text-blue-400 transition-colors"><i class="fab fa-linkedin text-2xl"></i></a> <a href="#" class="text-gray-400 hover:text-gray-200 transition-colors"><i class="fab fa-github text-2xl"></i></a> <a href="#" class="text-gray-400 hover:text-red-400 transition-colors"><i class="fas fa-envelope text-2xl"></i></a> </div> </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer --><footer class="bg-gray-950 border-t border-gray-800 py-12">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-500">
+                <p>&copy; 2025 Pneumonia AI Project. All rights reserved. Presented at LUMS.</p>
+                <p class="text-sm mt-2">This is an academic project and not a clinical diagnostic tool.</p>
+                <div class="mt-6 flex justify-center space-x-6"> <a href="#" class="text-gray-500 hover:text-white transition-colors"><i class="fab fa-twitter text-xl"></i></a> <a href="#" class="text-gray-500 hover:text-white transition-colors"><i class="fab fa-github text-xl"></i></a> <a href="#" class="text-gray-500 hover:text-white transition-colors"><i class="fab fa-linkedin text-xl"></i></a> </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <script>
+        // --- JavaScript for Interactive Elements ---
+
+        // Navbar active link and sticky behavior
+        const navbar = document.getElementById('navbar');
+        const sections = document.querySelectorAll('section');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        function updateNavbar() {
+            let currentSection = 'home'; // Default to home
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - navbar.offsetHeight - 50; // Adjust offset
+                if (window.scrollY >= sectionTop) {
+                    currentSection = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${currentSection}`) {
+                    link.classList.add('active');
+                }
+            });
+
+            if (window.scrollY > 10) { // Add shadow earlier
+                navbar.classList.add('shadow-xl', 'border-b', 'border-gray-800');
+            } else {
+                navbar.classList.remove('shadow-xl', 'border-b', 'border-gray-800');
+            }
+        }
+        window.addEventListener('scroll', updateNavbar);
+        window.addEventListener('load', updateNavbar);
+
+
+        // Smooth Scrolling for Nav Links (refined offset)
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => { // Select all links starting with #
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    const offsetTop = targetElement.getBoundingClientRect().top + window.scrollY - navbar.offsetHeight;
+                    window.scrollTo({ top: offsetTop, behavior: 'smooth' });
+                }
+            });
+        });
+
+
+        // Section Fade-in on Scroll (same as before)
+        const observerOptions = { root: null, rootMargin: '0px', threshold: 0.15 };
+        const sectionObserver = new IntersectionObserver((entries, observer) => { 
+             entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    entry.target.querySelectorAll('.animated-item').forEach((item, index) => {
+                        item.style.transitionDelay = `${index * 0.15}s`; 
+                        item.classList.add('is-visible');
+                    });
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+        document.querySelectorAll('.fade-in-section').forEach(section => { sectionObserver.observe(section); });
+
+        // --- Detector App Logic (MODIFIED FOR FLASK BACKEND) ---
+        const uploadBox = document.getElementById('upload-box');
+        const uploadText = document.getElementById('upload-text');
+        const uploadButton = document.getElementById('upload-button');
+        const fileInput = document.getElementById('file-input');
+        const imagePreview = document.getElementById('image-preview');
+        const previewImg = document.getElementById('preview-img');
+        const fileName = document.getElementById('file-name');
+        const clearButton = document.getElementById('clear-button');
+        const resultBox = document.getElementById('result-box');
+        const loader = document.getElementById('loader');
+        const resultCard = document.getElementById('result-card');
+        const resultText = document.getElementById('result-text');
+        const confidenceText = document.getElementById('confidence-text');
+        const errorMessageArea = document.getElementById('error-message-area');
+        
+        // Gemini Elements (same as before)
+        const geminiButtons = document.getElementById('gemini-buttons');
+        const explainButton = document.getElementById('explain-button');
+        const nextStepsButton = document.getElementById('next-steps-button');
+        const explanationOutput = document.getElementById('explanation-output');
+        const nextStepsOutput = document.getElementById('next-steps-output');
+        let currentPrediction = null; 
+
+        // --- Function to check backend status ---
+        async function checkBackendStatus() {
+            try {
+                // Check the /predict endpoint specifically as it requires the model
+                // Use HEAD request as we only need the status
+                const response = await fetch('/predict', { method: 'HEAD' }); 
+                if (response.ok || response.status === 405) { // 405 Method Not Allowed is OK, means endpoint exists
+                    enableUpload();
+                    console.log("Backend status check: OK");
+                } else {
+                    console.error(`Backend status check failed: ${response.status}`);
+                    showError(`Backend server might be down or model failed to load (Status: ${response.status}). Please check server logs and try again.`);
+                    disableUpload("Backend Error");
+                }
+            } catch (error) {
+                console.error("Error checking backend status:", error);
+                // Check if it's a TypeError due to invalid URL parsing in specific environments
+                if (error instanceof TypeError && error.message.includes("Failed to parse URL")) {
+                     showError("Cannot check backend status from this environment. Assuming backend is running.");
+                     enableUpload(); // Allow upload attempt anyway
+                } else {
+                    showError("Could not connect to the analysis server. Please ensure it's running and try again.");
+                    disableUpload("Connection Error");
+                }
+            }
+        }
+
+
+        function disableUpload(reason = "Initializing AI...") { // Updated default message
+            uploadText.textContent = reason;
+            uploadBox.classList.add('disabled');
+            uploadButton.disabled = true;
+             uploadButton.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-purple-600');
+             uploadButton.classList.add('bg-gray-600', 'cursor-not-allowed');
+        }
+
+        function enableUpload() {
+             uploadText.textContent = "Drag & drop your X-ray here";
+             uploadBox.classList.remove('disabled');
+             uploadButton.disabled = false;
+             uploadButton.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-purple-600');
+             uploadButton.classList.remove('bg-gray-600', 'cursor-not-allowed');
+        }
+
+        // --- Run status check on page load ---
+         document.addEventListener('DOMContentLoaded', () => {
+             disableUpload(); // Start disabled
+             checkBackendStatus(); // Check if backend is ready
+         });
+
+
+        // Event Listeners for file handling
+        uploadButton.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) handleFile(file); });
+
+        // Drag and Drop handlers (same as before)
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => { uploadBox.addEventListener(eventName, preventDefaults, false); document.body.addEventListener(eventName, preventDefaults, false); });
+        ['dragenter', 'dragover'].forEach(eventName => { uploadBox.addEventListener(eventName, () => { if (!uploadBox.classList.contains('disabled')) uploadBox.classList.add('drag-over'); }, false); }); // Only add class if enabled
+        ['dragleave', 'drop'].forEach(eventName => { uploadBox.addEventListener(eventName, () => uploadBox.classList.remove('drag-over'), false); });
+        uploadBox.addEventListener('drop', (e) => { 
+            // Prevent drop if disabled
+            if (uploadBox.classList.contains('disabled')) return; 
+            const file = e.dataTransfer.files[0]; 
+            if (file) { fileInput.files = e.dataTransfer.files; handleFile(file); } 
+        }, false);
+        
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+        function handleFile(file) {
+            // Validate file type (basic)
+            if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                showError("Invalid file type. Please upload a PNG or JPG/JPEG image.");
+                resetApp(false); // Reset without checking backend
+                return;
+            }
+            // Validate file size (e.g., max 10MB)
+            const maxSizeMB = 10;
+            if (file.size > maxSizeMB * 1024 * 1024) {
+                 showError(`File is too large (max ${maxSizeMB}MB). Please upload a smaller image.`);
+                 resetApp(false);
+                 return;
+            }
+            
+            hideError(); // Clear previous errors
+            displayImage(file);
+            runRealAnalysis(file); // Call the backend prediction
+        }
+
+        function displayImage(file) {
+            // Same as before
+            const reader = new FileReader();
+            reader.onload = (e) => { previewImg.src = e.target.result; };
+            reader.readAsDataURL(file);
+            fileName.textContent = file.name;
+            uploadBox.classList.add('hidden');
+            imagePreview.classList.remove('hidden');
+            resultBox.classList.add('hidden');
+            explanationOutput.classList.add('hidden');
+            nextStepsOutput.classList.add('hidden');
+            geminiButtons.classList.add('hidden');
+        }
+
+        // --- Function for Real Analysis via Flask Backend ---
+        async function runRealAnalysis(file) {
+            resultBox.classList.remove('hidden');
+            loader.classList.remove('hidden');
+            resultCard.classList.add('hidden');
+            geminiButtons.classList.add('hidden'); 
+            hideError(); // Hide previous errors
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/predict', { // Send to Flask endpoint
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const responseData = await response.json(); // Always try to parse JSON
+
+                if (!response.ok) {
+                    let errorMsg = `Analysis failed (Status: ${response.status}). ${responseData.error || 'Server error.'}`;
+                    throw new Error(errorMsg);
+                }
+
+                if (responseData.error) { // Check for application-level errors
+                    throw new Error(responseData.error);
+                }
+                
+                // Determine boolean from prediction string
+                const isPneumonia = responseData.prediction === 'PNEUMONIA DETECTED';
+                currentPrediction = responseData.prediction; // Store prediction string
+
+                displayResult(isPneumonia, responseData.confidence);
+
+            } catch (error) {
+                console.error('Prediction Error:', error);
+                loader.classList.add('hidden'); // Hide loader on error
+                showError(`Prediction failed: ${error.message || "Unknown error occurred"}`);
+                // Don't resetApp here, allow user to see the error with the image
+                // resetApp(false); 
+            }
+        }
+        
+        // Modified displayResult (input boolean, not string)
+        function displayResult(isPneumonia, confidence) {
+            loader.classList.add('hidden');
+            resultCard.classList.remove('hidden');
+            resultCard.classList.add('fade-in');
+
+            if (isPneumonia) {
+                resultText.textContent = 'PNEUMONIA DETECTED';
+                resultText.classList.remove('text-green-400');
+                resultText.classList.add('text-red-400');
+            } else {
+                resultText.textContent = 'NO PNEUMONIA';
+                resultText.classList.remove('text-red-400');
+                resultText.classList.add('text-green-400');
+            }
+            // Format confidence to always show 2 decimal places
+            confidenceText.textContent = `${parseFloat(confidence).toFixed(2)}%`; 
+            
+            geminiButtons.classList.remove('hidden');
+            geminiButtons.classList.add('fade-in'); 
+        }
+
+        // --- Error Handling Functions ---
+        function showError(message) {
+            errorMessageArea.innerHTML = `<div class="error-message">${message}</div>`;
+            errorMessageArea.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorMessageArea.classList.add('hidden');
+            errorMessageArea.innerHTML = '';
+        }
+
+        clearButton.addEventListener('click', () => resetApp(true)); // Pass true to check backend on reset
+
+        function resetApp(checkBackend = true) { // Optional parameter
+            fileInput.value = null;
+            imagePreview.classList.add('hidden');
+            resultBox.classList.add('hidden');
+            resultCard.classList.add('hidden');
+            uploadBox.classList.remove('hidden');
+            previewImg.src = '#';
+            fileName.textContent = '';
+            explanationOutput.classList.add('hidden');
+            nextStepsOutput.classList.add('hidden');
+            explanationOutput.innerHTML = ''; 
+            nextStepsOutput.innerHTML = ''; 
+            currentPrediction = null;
+            hideError(); // Clear errors on reset
+             if (checkBackend) {
+                 checkBackendStatus(); 
+             } else {
+                 enableUpload(); // Just enable upload if not checking status
+             }
+        }
+
+
+        // --- Gemini API Call Logic (Unchanged - Ensure error handling is robust) ---
+        const apiKey = "AIzaSyCA2aB1q0liyjU5cIPQwj802rNhiHfO0yg"; // Leave blank
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        
+        function showGeminiLoading(outputElement) { 
+             outputElement.innerHTML = `
+                <div class="gemini-spinner-container">
+                    <div class="spinner !w-6 !h-6"></div> 
+                    <p class="ml-3 text-sm text-gray-400">Generating information...</p>
+                </div>`;
+            outputElement.classList.remove('hidden');
+        }
+
+        async function callGeminiApi(payload, maxRetries = 3) { 
+             let attempt = 0;
+            let delay = 1000; 
+
+            while (attempt < maxRetries) {
+                try {
+                    const response = await fetch(geminiApiUrl, { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        // Handle non-2xx responses (like 429 Too Many Requests)
+                        if (response.status === 429 && attempt < maxRetries - 1) {
+                            console.warn(`Gemini API rate limit hit. Retrying in ${delay / 1000}s...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2; // Exponential backoff
+                            // DO NOT increment attempt here, retry logic handles it below
+                        } else {
+                            // For other errors or max retries reached
+                            console.error(`Gemini API Error: ${response.status} ${response.statusText}`);
+                            let errorBody = "Could not read error body.";
+                             try { errorBody = await response.text(); } catch(e){}
+                            console.error("Gemini Error Body:", errorBody);
+                            return { error: `Gemini API request failed (Status: ${response.status}). Please try again later.` };
+                        }
+                    } else { 
+                        // Successful response
+                        const result = await response.json();
+                        const candidate = result.candidates?.[0];
+
+                        if (candidate && candidate.content?.parts?.[0]?.text) {
+                            return { text: candidate.content.parts[0].text };
+                        } else {
+                            console.error("Unexpected Gemini API response structure:", result);
+                            // Check for safety blocks or other issues
+                             if (candidate?.finishReason && candidate.finishReason !== "STOP") {
+                                 return { error: `Content generation stopped due to: ${candidate.finishReason}. Please refine your request or try again.` };
+                             }
+                            return { error: "Could not extract text from the Gemini API response." };
+                        }
+                    }
+                } catch (error) {
+                    console.error("Gemini Network or fetch error:", error);
+                     if (attempt >= maxRetries - 1) {
+                         // Max retries reached after network error
+                         return { error: "Failed to connect to the Gemini API after multiple attempts." };
+                     }
+                     console.warn(`Gemini Network error. Retrying in ${delay / 1000}s...`);
+                     await new Promise(resolve => setTimeout(resolve, delay));
+                     delay *= 2; 
+                }
+                 attempt++; // Increment attempt for the next loop iteration or exit
+            }
+             // Should only be reached if maxRetries is 0 or loop logic fails
+             return { error: "Max retries reached. Failed to get response from Gemini API." }; 
+        }
+
+        // --- Event Listeners for Gemini Buttons (Unchanged) ---
+        explainButton.addEventListener('click', async () => { 
+            if (!currentPrediction) return;
+            showGeminiLoading(explanationOutput);
+            nextStepsOutput.classList.add('hidden'); 
+            const systemPrompt = `You are a helpful assistant explaining medical concepts in simple terms for a general audience. **IMPORTANT:** You MUST include the following disclaimer at the very end of your explanation: "**Disclaimer:** This is for informational purposes only and is NOT medical advice. Always consult a healthcare professional for diagnosis and treatment."`;
+            const userQuery = `My AI model analyzed a chest X-ray and the result is "${currentPrediction}". Please briefly explain what this result generally means in simple, easy-to-understand language (1-2 short paragraphs). Do NOT give medical advice or suggest actions.`;
+            const payload = { contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] }, };
+            const result = await callGeminiApi(payload);
+            if (result.error) { explanationOutput.innerHTML = `<p class="text-red-400">${result.error}</p>`; } 
+            else { 
+                 let formattedText = result.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'); 
+                 explanationOutput.innerHTML = `<h4>Understanding the Result</h4><p>${formattedText}</p>`; 
+            }
+         });
+        nextStepsButton.addEventListener('click', async () => { 
+            if (!currentPrediction) return;
+            showGeminiLoading(nextStepsOutput);
+            explanationOutput.classList.add('hidden');
+            const systemPrompt = `You are an AI assistant providing general information based on web search results. You are responding to a user whose AI model gave a preliminary chest X-ray result. Your task is to list potential, general next steps someone MIGHT discuss with their doctor in such a situation, based on web search results. **CRITICAL:** Frame these as *examples* of topics for discussion with a doctor, NOT as direct advice. You MUST include the following disclaimer prominently at the BEGINNING and END of your response: "**Disclaimer:** This AI provides general information based on web searches and is NOT a substitute for professional medical advice. Actions should ONLY be taken after consulting a qualified healthcare provider."`;
+            const userQuery = `An AI model analyzed a chest X-ray and gave the preliminary result "${currentPrediction}". Based on general information from web searches, what are some *examples* of next steps or topics someone might typically discuss with their doctor in this situation?`;
+            const payload = { contents: [{ parts: [{ text: userQuery }] }], systemInstruction: { parts: [{ text: systemPrompt }] }, tools: [{ "google_search": {} }], };
+            const result = await callGeminiApi(payload);
+             if (result.error) { nextStepsOutput.innerHTML = `<p class="text-red-400">${result.error}</p>`; } 
+             else { 
+                  let formattedText = result.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'); 
+                  nextStepsOutput.innerHTML = `<h4>Potential Discussion Points with Your Doctor</h4><p>${formattedText}</p>`; 
+             }
+         });
+
+    </script>
+</body>
+</html>
+
